@@ -1,0 +1,100 @@
+import customtkinter as ctk
+from countryinfo import CountryInfo
+import threading
+import tkinter as tk
+
+# --- CustomTkinter Setup (Futuristic Theme) ---
+ctk.set_appearance_mode("Dark")
+# A custom color theme for a sci-fi/futuristic purple look
+# We define colors that suggest neon glow and dark metal
+BG_COLOR = "#1a1a2e"  # Deep space blue/purple background
+FRAME_COLOR = "#2a2a3e"  # Slightly lighter frame color
+ACCENT_COLOR = "#94a3b8"  # Pale blue for standard text
+BUTTON_COLOR = "#6A0DAD"  # Vibrant purple for buttons
+HOVER_COLOR = "#8B008B"  # Brighter purple on hover
+
+
+def get_country_info_threaded():
+    """Run data fetching in a separate thread to keep the GUI responsive."""
+    # Set status message while loading
+    info_textbox.delete("1.0", ctk.END)
+    info_textbox.insert(ctk.END, "Querying the global database... Please wait.")
+    button.configure(state=ctk.DISABLED)  # Disable button during query
+
+    thread = threading.Thread(target=fetch_data)
+    thread.start()
+
+
+def fetch_data():
+    """Fetches country data using the countryinfo library."""
+    country_name = entry.get().strip().lower()
+
+    if not country_name:
+        # Update GUI from the main thread if input is empty
+        root.after(0, lambda: info_textbox.insert(ctk.END, "\n\nEnter a valid country name."))
+        root.after(0, lambda: button.configure(state=ctk.NORMAL))
+        return
+
+    try:
+        # Use the CountryInfo library
+        country = CountryInfo(country_name)
+        data = country.info()
+
+        # Format the data into a nice string for display
+        formatted_info = f"--- {data.get('name', 'N/A')} Global Data Matrix ---\n\n"
+
+        # Display key information nicely
+        formatted_info += f"Capital         : {', '.join(data.get('capital', ['N/A']))}\n"
+        formatted_info += f"Population      : {data.get('population', 'N/A'):,}\n"
+        formatted_info += f"Area (sq km)    : {data.get('area', 'N/A'):,}\n"
+        formatted_info += f"Currency        : {', '.join(data.get('currencies', ['N/A']))} ({', '.join(data.get('currenciesName', ['N/A']))})\n"
+        formatted_info += f"Languages       : {', '.join(data.get('languages', ['N/A']))}\n"
+        formatted_info += f"Continent/Region: {data.get('region', 'N/A')}\n"
+        formatted_info += f"Calling Codes   : +{', +'.join(data.get('callingCodes', ['N/A']))}\n"
+        formatted_info += f"Timezones       : {', '.join(data.get('timezones', ['N/A']))}\n\n"
+
+        # Update the GUI textbox in the main thread using root.after
+        root.after(0, lambda: info_textbox.delete("1.0", ctk.END))
+        root.after(0, lambda: info_textbox.insert(ctk.END, formatted_info))
+
+    except Exception:
+        root.after(0, lambda: info_textbox.delete("1.0", ctk.END))
+        root.after(0, lambda: info_textbox.insert(ctk.END,
+                                                  f"Error: Could not retrieve data for '{country_name.capitalize()}'.\nPlease ensure the country name is spelled correctly."))
+
+    root.after(0, lambda: button.configure(state=ctk.NORMAL))
+
+
+root = ctk.CTk()
+root.title("GeoWiki | Global Information")
+root.geometry("650x550")
+root.configure(fg_color=BG_COLOR)
+
+geowiki_title_font = ctk.CTkFont(family="Arial Narrow", size=40, weight="bold")
+title_font = ctk.CTkFont(family="Consolas", size=20, weight="bold")
+body_font = ctk.CTkFont(family="Consolas", size=12)
+
+main_frame = ctk.CTkFrame(root, fg_color=BG_COLOR)
+main_frame.pack(pady=20, padx=20, fill="both", expand=True)
+
+title_label = ctk.CTkLabel(main_frame, text="GeoWiki", font=geowiki_title_font,
+                           text_color="#94a3b8")
+title_label.pack(pady=(0, 20))
+
+input_frame = ctk.CTkFrame(main_frame, fg_color=FRAME_COLOR, corner_radius=10)
+input_frame.pack(pady=10, padx=10, fill="x")
+
+entry = ctk.CTkEntry(input_frame, placeholder_text="Target Country Name (e.g., Germany)...", width=300, font=body_font,
+                     fg_color="#0f0f1c", border_color=BUTTON_COLOR, border_width=1)
+entry.pack(side=ctk.LEFT, padx=15, pady=15)
+
+button = ctk.CTkButton(input_frame, text="ACTIVATE QUERY >>", command=get_country_info_threaded, fg_color=BUTTON_COLOR,
+                       hover_color=HOVER_COLOR, font=ctk.CTkFont(family="Consolas", weight="bold"))
+button.pack(side=ctk.RIGHT, padx=15, pady=15)
+
+info_textbox = ctk.CTkTextbox(main_frame, width=500, height=300, font=body_font, wrap="word", corner_radius=10,
+                              text_color=ACCENT_COLOR, fg_color=FRAME_COLOR, border_color=BUTTON_COLOR, border_width=1)
+info_textbox.pack(pady=10, padx=10, fill="both", expand=True)
+info_textbox.insert(ctk.END, "System Ready: Awaiting input for global data retrieval.")
+
+root.mainloop()
